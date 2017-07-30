@@ -2,7 +2,7 @@ import builtins
 from unittest.mock import patch
 
 import matplotlib.pyplot as plt
-import networkx as nx
+import graphviz as gv
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -17,13 +17,13 @@ class Edge():
 
 class Node():
 
-    def __init__(self, nxgraph, master, name):
+    def __init__(self, gvgraph, master, name):
 
         self.master = master
         self.name = name
 
-        self.nxg = nxgraph
-        self.nxg.add_node(name)
+        self.gvg = gvgraph
+        self.gvnode = gvgraph.node(name)
 
     def __gt__(self, other):
         '''
@@ -39,7 +39,7 @@ class Node():
 
         # If mutable, add an edge and return True
         if self.master.mutable:
-            self.nxg.add_edge(self.name, other.name)
+            self.gvg.edge(self.name, other.name)
             Edge(self.master, self, other)
 
         # If immutable, return True if there is a matching edge
@@ -69,15 +69,10 @@ class Node():
         return both
 
 
-    # def __lt__(self, other):
-    #     pass
-    #
-
-
-class graph():
+class graph2():
 
     def __init__(self):
-        self.nxg = nx.DiGraph()
+        self.gvg = gv.Digraph(format='svg')
         self.mutable = False
 
         self.edges = []
@@ -98,12 +93,14 @@ class graph():
         return False
 
     def node(self, name):
-        n = Node(self.nxg, self, name)
+        n = Node(self.gvg, self, name)
         return n
 
     def draw(self):
-        nx.draw(self.nxg, with_labels=True, node_color="#aaafff")
-        plt.show()
+        return self.gvg
+
+    def __str__(self):
+        return str(self.gvg)
 
 
     def __enter__(self):
