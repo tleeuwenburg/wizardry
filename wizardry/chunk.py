@@ -1,10 +1,13 @@
 from plotly.graph_objs import Scatter, Bar, Figure, Layout
 import operator
 
+from functools import reduce
 from wizardry.utils import all_sublists
 
 def chunk(*values):
-
+    '''
+    Take pretty broad-ranging input, and chunk it. Chunky.
+    '''
 
     try:
 
@@ -29,6 +32,9 @@ class Chunk():
 
         return self.basic_words()
 
+
+    def error(self):
+        raise NotImplementedError
 
     def basic_words(self):
         tpl = "From %2.2f to %2.2f, the temperature will reach %s"
@@ -105,7 +111,10 @@ class Chunk():
 
 class MultiChunk(Chunk):
 
-    def __init__(self, values, mode='seq'):
+    def __init__(self, values, mode='sequence'):
+
+        if len(values) == 0:
+            raise Exception("Cannot create an empty multichunk")
 
         # Multichunk components must be other chunks
         for v in values:
@@ -118,9 +127,51 @@ class MultiChunk(Chunk):
         for i in range(1, len(values)):
             values[i].set_previous(values[i-1])
 
+
+    def error_sequence(self):
+        '''
+        1 is a perfect score
+        0 is the worst score
+        '''
+
+        errors = [c.error() for c in self.subchunks]
+        error = reduce(operator.add, errors)
+
+        return error
+
+    def error_aggregate(self):
+
+        overall_max = self.max
+
+        maxs = [c.max for c in self.subchunks]
+        errors = [(overall_max - m) / overall_max for m in maxs]
+        cum_error = reduce(operator.add, errors)
+
+        return cum_error
+
+
+    def error(self):
+        '''
+        The score of a sequence is a funtion of the scores of its
+        components.
+
+        The score of an aggregate is a function of the relationship between
+        its components and its summary.
+
+        1 is a perfect score
+        0 is the worst score
+        '''
+
+
+        if self.mode == "aggregate":
+            return self.error_aggregate()
+
+        else:
+            return self.error_sequence()
+
     def __repr__(self):
 
-        if self.mode == 'seq':
+        if self.mode == 'sequence':
             return self.sequence_words()
 
         if self.mode == 'aggregate':
@@ -129,10 +180,11 @@ class MultiChunk(Chunk):
     def sequence_words(self):
 
         parts = []
+        tpl = ''
         for c in self.subchunks:
             parts.append(repr(c))
 
-        tpl = ' and '.join(parts)
+        tpl += ' and '.join(parts)
         return tpl
 
     def dumbchunk(self):
@@ -144,6 +196,30 @@ class MultiChunk(Chunk):
             parts.append(bigchunk)
 
         self.subchunks = parts
+
+    def smartchunk(self):
+
+        chunk_max_count = 3
+
+        foo = []
+        all_splits = all_sublists(self.subchunks, depth=chunk_max_count)
+        for splits in all_splits:
+            parts = []
+            for split in splits:
+                if len(split) > 0:
+                    bigchunk = MultiChunk(split, mode='aggregate')
+                    parts.append(bigchunk)
+
+            seq = MultiChunk(parts, mode='sequence')
+            foo.append(seq)
+
+        scores = [(f.error(), f) for f in foo if f.error() != 0]
+
+        errors, fs = zip(*scores)
+
+        scores.sort(key=operator.itemgetter(0))
+        best_score, best_combo = scores[0]
+        self.subchunks = best_combo.subchunks
 
 
     @property
@@ -158,8 +234,18 @@ class MultiChunk(Chunk):
 
     @property
     def max(self):
-        maxs = [c.max for c in self.subchunks]
-        return max(maxs)
+
+        try:
+            maxs = [c.max for c in self.subchunks]
+            overall_max = max(maxs)
+
+        except:
+
+            print(self.mode)
+            print(len(self.subchunks))
+            raise
+
+        return overall_max
 
     @property
     def min(self):
@@ -193,6 +279,13 @@ class TinyChunk(Chunk):
 
         self.set_previous(None)
 
+    def error(self):
+        '''
+        0 is a perfect score
+        1 is the worst score
+        '''
+
+        return 0  # TinyChunks perfectly represent the data
 
 
 
@@ -205,37 +298,10 @@ class TinyChunk(Chunk):
 
 
 
-def score_max(option):
-
-    errors = []
-
-    for part in option:
-        c = Chunk(option)
-        maxs = c.maxs()
-        c_max = c.max()
-
-        errors += [c_max - cmax for cmax in maxs]
-
-    goods = [1 - e for e in errors]
-    good = reduce(operator.mul(goods))
-    error = 1 - good
 
 
-#
-#
-#     def dumbchunk(self):
-#         dumbchunk_count = 4
-#
-#         chunked = []
-#
-#         length = len(self.raw_chunks)
-#         if length > dumbchunk_count:
-#             sublength = int(length / dumbchunk_count)
-#             for i in range(0, length, sublength):
-#                 subchunk = chunk(self.raw_chunks[i:i+sublength])
-#                 chunked.append(subchunk)
-#
-#         self.chunks = chunked
+
+
 #
 #     def smartchunk(self):
 #         depth = 2
@@ -258,42 +324,3 @@ def score_max(option):
 #         return scores
 #
 #
-#
-#
-#
-#
-#
-# class TinyChunk(Chunk):
-#     '''
-#     A 'leaf' chunk with actual data in it
-#     '''
-#
-#     def __init__(self, values):
-#         try:
-#             start, end, the_min, the_max = values
-#
-#         except:
-#             print(values)
-#             raise
-#         self.values = values
-#         self.start = start
-#         self.end = end
-#         self.min = the_min
-#         self.max = the_max
-#
-#     def __repr__(self):
-#
-#         show = "Hours %s to %s: Min %s to Max %s" % (self.values)
-#         return show
-#
-#     def starts(self):
-#         return [self.start]
-#
-#     def ends(self):
-#         return [self.end]
-#
-#     def mins(self):
-#         return [self.min]
-#
-#     def maxs(self):
-#         return [self.max]
