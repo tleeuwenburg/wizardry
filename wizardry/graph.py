@@ -69,11 +69,6 @@ class Node():
         return both
 
 
-    # def __lt__(self, other):
-    #     pass
-    #
-
-
 class graph():
 
     def __init__(self):
