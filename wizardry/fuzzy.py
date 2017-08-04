@@ -5,6 +5,7 @@ import operator
 
 ALPHA = 0.01  # To avoid zero vaues in multiply and divide
 
+
 def learn(books):
     '''
     @return an agent that knows about all the books
@@ -43,8 +44,6 @@ def best_match(xs, ys):
     best_match = matches[0]
     return best_match
 
-
-
 def match(hasha, hashb):
 
     xs = [x.strip().lower() for x in hasha.split()]
@@ -72,23 +71,31 @@ class Agent():
         self.dict = {}
         self.authors = []
         self.titles = []
+        self.mode = None
+
+    def set_mode(self, mode):
+        self.mode = mode
 
     def learn(self, title, author, lines):
 
         terrible_hash = title + " " + author
         self.dict[terrible_hash] = (title, author, lines)
 
-    def __getitem__(self, key):
+    def __getitem__(self, search_term):
 
         items = list(self.dict.items())
-        best_score = 0
+        best_score = 50
         best_item = None
 
         for (key, value) in items:
             title, author, lines = value
-            terrible_hash = title + " " + author
-            score = match(key, terrible_hash)
-            if score > best_score:
+            terrible_hash = title + "    " + author
+            score = match(search_term, terrible_hash)
+
+            if self.mode == 'show_scores':
+                print("Matching %s and %s: %s" % (search_term, terrible_hash, score))
+
+            if score < best_score:
                 best_score = score
                 best_item = value
 
