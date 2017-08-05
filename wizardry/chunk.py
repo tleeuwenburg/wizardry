@@ -49,6 +49,10 @@ class Chunk():
 
         return MultiChunk([self, other], mode='aggregate')
 
+    def __radd__(self, other):
+
+        return other + repr(self)
+
     def set_previous(self, prev):
         self.prev = prev
 
@@ -202,7 +206,9 @@ class MultiChunk(Chunk):
         chunk_max_count = 3
 
         foo = []
+
         all_splits = all_sublists(self.subchunks, depth=chunk_max_count)
+
         for splits in all_splits:
             parts = []
             for split in splits:
